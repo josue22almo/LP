@@ -26,6 +26,7 @@ AST* createASTnode(Attrib* attr, int ttype, char *textt);
 #include <cmath>
 #include <map>
 #include <vector>
+#include <list>
 // function to fill token information
 void zzcr_attr(Attrib *attr, int type, char *text) {
     attr->kind = text;
@@ -112,6 +113,13 @@ struct Connector{
     bool valid;
 };
 
+struct Tubevector{
+    string id;
+    list <Tube> tubes;
+    int maxSize;
+    bool valid;
+};
+
 struct Error{
     int line;
     string text;
@@ -120,16 +128,59 @@ struct Error{
 typedef map<string, Tube> Tubes;
 typedef map<string, Connector> Connectors;
 typedef vector<Error> Errors;
+typedef map<string,Tubevector> Tubevectors;
 
 Tubes tubes;
 Connectors connectors;
 Errors errors;
+Tubevectors tubevectors;
+
+void printLengthDiameter(AST *c, AST *id, int size);
+void printTubes();
+void printConnectors();
+void printTubevectors();
+void printErrors();
+void saveError (string msg, int line);
+void errorNotDeclared(AST *c, int line);
+void saveWhileError();
+void invalidatedTubeConnector(AST *a);
+void insertTube(Tube newTube);
+void insertConnector(Connector newConnector);
+void insertTubevector(Tubevector newTubevector);
+void normalAssignation(AST *id, AST *value, int line);
+void push(AST *a, AST *value, int line);
+void popTube(AST *a);
+void evaluateAST (AST *a, int line);
+
+int evalWhile(AST *condition, AST *ops, int line);
+int getSize (AST *a, int line);
+
+bool isDigit (char c);
+bool validTube (string id);
+bool validConnector (string id);
+bool validTubevector (string id);
+bool empty(Tubevector tb);
+bool empty (AST *a, int line);
+bool full (Tubevector tb);
+bool full (AST *a, int line);
+bool evalCondition (AST *condition, int line);
+
+Tube createTube (AST *aId, AST *aSize, int line);
+Tube createTube(string s, int l, int d);
+Tube merge (AST *id, AST *mg, int line);
+Tube pop(AST *a, AST *value, int line);
+Connector createConnector (AST *aId, AST *aSize, int line);
+Tubevector createTubevector(AST *id, AST *value, int line);
+pair<Tube,Tube> split(AST *a, int line);
+
 
 void printLengthDiameter(AST *c, AST *id, int size){
     cout << "The " << c->kind << " of " << id->kind << " is " << size << "." << endl;    
 }
 
-void printTube(){
+void printTubes(){
+    cout << "Execution is done" << endl;
+    cout << "-------------------------" << endl << "-------------------------" << endl;
     cout << "At the end of the execution following variables are the available tubes."<< endl;
     for(map<string, Tube >::iterator it = tubes.begin(); it != tubes.end(); ++it){
         if (it->second.valid)
@@ -147,16 +198,34 @@ void printConnectors(){
     cout << "-------------------------" << endl << "-------------------------" << endl;
 }
 
-void printErrors(){
-    cout << "ERRORS FOUNDS: ";
-    for (int i = 0; i < errors.size(); ++i){
-        cout << "Error in line " << errors[i].line << ". " << errors[i].text << endl;
+void printTubevectors(){
+    cout << "At the end of the execution following variables are the available tube in the tubevectors."<< endl;
+    for(map<string, Tubevector>::iterator it = tubevectors.begin(); it != tubevectors.end(); ++it){
+        cout << "The tube vector " << it->second.id;
+        bool first = true;
+        list <Tube> l = it->second.tubes;
+        int cont = 0;
+        for (list<Tube>::iterator i = l.begin(); i != l.end(); ++i){
+           if (first){
+                first = false;
+                cout << " has the folowing tubes:" << endl;
+            }
+            cout << it->second.id << ++cont << " " << (*i).length << " " << (*i).diameter << endl;
+        }
+        if (first) cout << " has no tubes." << endl;
     }
     cout << "-------------------------" << endl << "-------------------------" << endl;
 }
 
-bool isDigit (char c){
-    return ( '0' <= c && c <= '9' );
+void printErrors(){
+    cout << "ERRORS FOUNDS: ";
+    cout << (errors.size() == 0 ? "The program had correct exection" : "") << endl;
+    for (int i = 0; i < errors.size(); ++i){
+        if (errors[i].line != 0)
+            cout << "Error in line " << errors[i].line << " ";
+        cout << errors[i].text << endl;
+    }
+    cout << "-------------------------" << endl << "-------------------------" << endl;
 }
 
 void saveError (string msg, int line){
@@ -166,8 +235,155 @@ void saveError (string msg, int line){
     errors.push_back(e);
 }
 
-void errorNotDeclare(AST *c, int line){
-    saveError(c->kind + " has not declared in this scope.",line);
+void errorNotDeclared(AST *c, int line, string k){
+    saveError("Error in " + k + " " + c->kind + " has not declared in this scope.",line);
+}
+
+void saveWhileError(){
+    saveError("WHILE loop didn't end its execution", 0);
+}
+
+void invalidatedTubeConnector(AST *a){
+    if (tubes.find(a->kind) != tubes.end())
+        tubes.find(a->kind)->second.valid = false;
+    else if (connectors.find(a->kind) != connectors.end())
+        connectors.find(a->kind)->second.valid = false;
+}
+
+void insertTube(Tube newTube){
+    if (tubes.find(newTube.id) != tubes.end()){
+        tubes.find(newTube.id)->second = newTube;
+    }else
+        tubes.insert(pair<string,Tube>(newTube.id,newTube));
+}
+
+void insertConnector(Connector newConnector){
+    if (connectors.find(newConnector.id) != connectors.end()){
+        connectors.find(newConnector.id)->second = newConnector;
+    }else 
+        connectors.insert(pair<string,Connector>(newConnector.id,newConnector));
+}
+
+void insertTubevector(Tubevector newTubevector){
+    if (tubevectors.find(newTubevector.id) != tubevectors.end()){
+        tubevectors.find(newTubevector.id)->second = newTubevector;
+    }else 
+        tubevectors.insert(pair<string,Tubevector>(newTubevector.id,newTubevector));
+}
+
+void normalAssignation(AST *id, AST *value, int line){
+    if (tubes.find(value->kind) != tubes.end()){
+        map<string, Tube >::iterator it  = tubes.find(value->kind);
+        Tube newTube;
+        if (it->second.valid){
+            newTube.id = id->kind;
+            newTube.length = it->second.length;
+            newTube.diameter = it->second.diameter;
+            newTube.valid = true;
+            invalidatedTubeConnector(value);
+            insertTube(newTube);
+        }else saveError(it->second.id + " is invalid.", line);
+    }else if (connectors.find(value->kind) != connectors.end()){
+        map<string, Connector >::iterator it  = connectors.find(value->kind);
+        if (it->second.valid){
+            Connector newConnector;
+            newConnector.id = id->kind;
+            newConnector.diameter = it->second.diameter;
+            newConnector.valid = true;
+            invalidatedTubeConnector(value);
+            insertConnector(newConnector);
+        }else saveError(it->second.id + " is invalid.", line);
+    }else{
+        errorNotDeclared(value,line, "NORMAL ASSIGNATION");
+    }
+}
+
+
+
+void push(AST *a, AST *value, int line){
+    if (tubevectors.find(a->kind) != tubevectors.end()){
+        if (!full(tubevectors.find(a->kind)->second)){ //push is possible 
+            if (validTube(value->kind)){ 
+                tubevectors.find(a->kind)->second.tubes.push_back(tubes.find(value->kind)->second);
+                invalidatedTubeConnector(value);
+            }
+            else 
+                errorNotDeclared(value,line,"PUSH");
+        }else
+            saveError("The tubevector " + a->kind + " is FULL.", line);
+        
+    }else 
+        errorNotDeclared(a,line,"PUSH");
+}
+
+void popTube(AST *a){
+    tubevectors.find(a->kind)->second.tubes.pop_front();
+}
+
+void evaluateAST (AST *a, int line){
+    int nChild = 0;
+    AST *currentChild;
+    while (nChild < numChilds(a)){
+        currentChild = child(a,nChild);
+        int nChilds = numChilds(currentChild);
+        if (nChilds == 3){//SPLIT
+            AST *id1 = child(currentChild,0);
+            AST *id2 = child(currentChild,1);
+            AST *sp = child(currentChild,2); //kind = SPLIT
+            pair<Tube,Tube> newTubes = split(sp->down,line);
+            if (newTubes.first.valid){
+                newTubes.first.id = id1->kind; newTubes.second.id = id2->kind;
+                insertTube(newTubes.first); insertTube(newTubes.second);
+            }
+        }
+        else if (nChilds == 2){ //TUBE , CONNECTOR , WHILE
+            AST *id = child(currentChild,0); //es el ID
+            AST *value = child(currentChild,1); //value
+            if (currentChild->kind == "="){ //AN ASSIGNATION
+                string kind = value->kind;
+                if (kind == "TUBE"){
+                    Tube newTube = createTube(id,value, line);           
+                    if (newTube.valid) insertTube(newTube);
+                }
+                else if (kind == "CONNECTOR"){
+                    Connector newConnector = createConnector(id,value,line);
+                    if (newConnector.valid) insertConnector(newConnector);
+                }else if (kind == "MERGE"){
+                    Tube newTube = merge(id,value,line);
+                    if (newTube.valid)  insertTube(newTube);
+                }else if (kind == "TUBEVECTOR"){
+                    Tubevector newTubevector = createTubevector(id,value,line);
+                    if (newTubevector.valid) insertTubevector(newTubevector);
+                }else {//normal assignation
+                    normalAssignation(id,value,line);
+                }                
+            }else if (currentChild->kind == "PUSH"){
+                push(id,value,line);
+            }else if (currentChild->kind == "POP"){
+                Tube newTube = pop(id,value,line);
+                if (newTube.valid) insertTube(newTube);
+            }else if (currentChild->kind == "WHILE"){
+                line += evalWhile(id,value,line);
+            }
+        }else if (nChilds == 1){ //LENGTH OR DIAMETER
+            AST *id = child(currentChild,0);
+            int size = getSize(currentChild,line);
+            if (size != -1) printLengthDiameter(currentChild,id,size);
+        }
+        ++nChild;
+        ++line;
+    }
+}
+
+int evalWhile(AST *condition, AST *ops, int line){
+    int nErrors = errors.size();
+    int errorsFinals = errors.size();
+    while (evalCondition(condition,line) && nErrors == errorsFinals){
+        evaluateAST(ops,line);
+        errorsFinals = errors.size();
+    }
+    if (nErrors != errorsFinals) saveWhileError();
+    return numChilds(ops);
 }
 
 int getSize (AST *a, int line){
@@ -183,7 +399,7 @@ int getSize (AST *a, int line){
                 saveError(c->kind + " is a CONNECTOR. CONNECTOR has no length", line);
                 return -1;
             }else{
-                errorNotDeclare(c,line);
+                errorNotDeclared(c,line,"LENGTH");
                 return -1;
             }
         }else{ //DIAMETER
@@ -193,11 +409,61 @@ int getSize (AST *a, int line){
                 //error, un tubo no tiene length, si no diameter
                 return connectors.find(c->kind)->second.diameter;;
             }else{
-                errorNotDeclare(c,line);
+                errorNotDeclared(c,line,"DIAMETER");
                 return -1;
             }
         }
     }
+}
+
+bool isDigit (char c){
+    return ( '0' <= c && c <= '9' );
+}
+
+bool validTube (string id){
+    return tubes.find(id) != tubes.end() && tubes.find(id)->second.valid;
+}
+
+bool validConnector (string id){
+    return connectors.find(id) != connectors.end() && connectors.find(id)->second.valid;
+}
+
+bool validTubevector (string id){
+    return tubevectors.find(id) != tubevectors.end() && tubevectors.find(id)->second.valid;
+}
+
+bool empty(Tubevector tb){
+     return tb.tubes.size() == 0;
+}
+
+bool empty (AST *a, int line){
+    if (validTubevector(a->kind)) return tubevectors.find(a->kind)->second.tubes.size() == 0;
+    return false;
+}
+
+bool full (Tubevector tb){
+    return tb.tubes.size() == tb.maxSize;
+}
+
+bool full (AST *a, int line){
+    if (validTubevector(a->kind)) return tubevectors.find(a->kind)->second.tubes.size() == tubevectors.find(a->kind)->second.maxSize;
+    return false;
+}
+
+bool evalCondition (AST *condition, int line){
+    if (condition->kind == "AND")
+        return evalCondition(child(condition,0),line) && evalCondition(child(condition,1),line);
+    else if (condition->kind == "OR")
+        return evalCondition(child(condition,0),line) || evalCondition(child(condition,1),line);
+    else if (condition->kind == "NOT")
+        return !evalCondition(child(condition,0),line);
+    else if (condition->kind == "FULL")
+        return full(child(condition,0),line);
+    else if (condition->kind == "EMPTY")
+        return empty(child(condition,0),line);
+    else if (condition->kind == ">") return getSize(child(condition,0),line) > getSize(child(condition,1),line);
+    else if (condition->kind == "<") return getSize(child(condition,0),line) < getSize(child(condition,1),line);
+    else if (condition->kind == "==") return getSize(child(condition,0),line) == getSize(child(condition,1),line);
 }
 
 Tube createTube (AST *aId, AST *aSize, int line){
@@ -209,45 +475,91 @@ Tube createTube (AST *aId, AST *aSize, int line){
     return tube;
 }
 
+Tube createTube(string s, int l, int d){
+    Tube tube;
+    tube.id = s;
+    tube.length = l;
+    tube.diameter = d;
+    tube.valid = true;
+    return tube;
+}
+
 Tube merge (AST *id, AST *mg, int line){
-    cout << "ini" << endl;
     Tube newTube;
-    cout << "1" << endl;
+    newTube.valid = false;
     AST *t1 = child(mg,0);
-    cout << "2" << endl;
     AST *con = child(mg,1);
-    cout << "3" << endl;
     AST *t2 = child(mg,2);
-    cout << "4" << endl;
     Tube tube1, tube2;
     Connector connector;
     tube1.valid = tube2.valid = connector.valid = false;
-    //Find the first TUBE
-    if (t1->kind == "MERGE"){ tube1 = merge(NULL,t1,line); cout << "5" << endl;}
+    //Getting the first TUBE
+    if (t1->kind == "MERGE") tube1 = merge(NULL,t1,line); 
     else{
-        if (tubes.find(t1->kind) != tubes.end())
+        if (validTube(t1->kind))
             tube1 = tubes.find(t1->kind)->second;
         else 
-            errorNotDeclare(t1,line);
+            errorNotDeclared(t1,line,"MERGE");
     }
     //Getting the connector
-    if (connectors.find(con->kind) != connectors.end())
-            connector = connectors.find(t2->kind)->second;
+    if (validConnector(con->kind))
+        connector = connectors.find(con->kind)->second;
     else 
-        errorNotDeclare(con,line);  
+        errorNotDeclared(con,line,"MERGE");  
     //Getting the second TUBE
-    cout << "hear 1" << endl;
-    if (t2->kind == "MERGE"){ tube2 = merge(NULL,t2,line); cout << "6" << endl;}
+    if (t2->kind == "MERGE") tube2 = merge(NULL,t2,line);
     else{
-        if (tubes.find(t2->kind) != tubes.end())
+        if (validTube(t2->kind))
             tube2 = tubes.find(t2->kind)->second;
         else 
-            errorNotDeclare(t2,line);
+            errorNotDeclared(t2,line,"MERGE");
     }
-    cout << "hear2 " << endl;
-    //Computing the new tube if possigble
-    if (tube1.diameter != connector.diameter || tube1.diameter != tube2.diameter || connector.diameter != tube2.diameter)
-        //saveError("The parameters of MERGE have diferents diameter", line);
+    //Creating the new tube if possible
+    if (tube1.valid == false|| tube2.valid == false|| connector.valid == false){
+        if (!tube1.valid)
+            saveError("MERGE error: " + t1->kind + " is invalid parameter.", line);
+        if (!connector.valid)
+            saveError("MERGE error: " + con->kind + " is invalid parameter.", line);
+        if (!tube2.valid)
+            saveError("MERGE error: " + t1->kind + " is invalid parameter.", line);
+        newTube.valid = false;
+    } else if (tube1.diameter != connector.diameter || tube1.diameter != tube2.diameter || connector.diameter != tube2.diameter){
+        if (tube1.diameter != connector.diameter){
+            saveError("MERGE error: Unmatch diameter between " + tube1.id + " and " + connector.id, line);
+            newTube.valid = false;
+        }
+        if (tube1.diameter != tube2.diameter ){
+            saveError("MERGE error: Unmatch diameter between " + tube1.id + " and " + tube2.id, line);
+            newTube.valid = false;
+        }
+        if (tube2.diameter != connector.diameter ){
+            saveError("MERGE error: Unmatch diameter between " + tube2.id + " and " + connector.id, line);
+            newTube.valid = false;
+        }
+    } else {
+        invalidatedTubeConnector(t1);
+        invalidatedTubeConnector(con);
+        invalidatedTubeConnector(t2);
+        newTube = createTube((id != NULL ? id->kind : ""),tube1.length+tube2.length,tube1.diameter);
+    }
+    return newTube;
+}
+
+
+Tube pop(AST *a, AST *value, int line){
+    Tube newTube;
+    newTube.valid = false;
+    if (validTubevector(a->kind)){
+        Tubevector tubevector;
+        tubevector = tubevectors.find(a->kind)->second;
+        if (!empty(tubevector)){
+            newTube = tubevector.tubes.front();
+            newTube.id = value->kind;
+            popTube(a);
+        }else saveError("Tubevector " + a->kind + " is empty.", line);
+        
+    }else 
+        errorNotDeclared(a,line,"POP");
     return newTube;
 }
 
@@ -259,12 +571,20 @@ Connector createConnector (AST *aId, AST *aSize, int line){
     return connector;
 }
 
+Tubevector createTubevector(AST *id, AST *value, int line){
+    Tubevector newTubevector;
+    newTubevector.id = id->kind;
+    newTubevector.maxSize = getSize(child(value,0),line);
+    newTubevector.valid = newTubevector.maxSize != -1;
+    return newTubevector;
+}
+
 pair<Tube,Tube> split(AST *a, int line){
     pair<Tube,Tube> newTubes;
     newTubes.first.valid = newTubes.second.valid = false;
     if (tubes.find(a->kind) != tubes.end()){
         Tube tube = tubes.find(a->kind)->second;
-        tubes.find(a->kind)->second.valid = false;
+        invalidatedTubeConnector(a);
         int newLength = tube.length/2;
         newTubes.first.length = newTubes.second.length = newLength;
         newTubes.first.diameter = newTubes.second.diameter = tube.diameter;
@@ -272,91 +592,18 @@ pair<Tube,Tube> split(AST *a, int line){
         if (tube.length % 2 != 0){
             ++newTubes.second.length;
         }
-    }else errorNotDeclare(a,line);
+    }else errorNotDeclared(a,line,"SPLIT");
     return newTubes;
-}
-
-void normalAssignation(AST *id, AST *value, int line){
-    if (tubes.find(value->kind) != tubes.end()){
-        map<string, Tube >::iterator it  = tubes.find(value->kind);
-        Tube newTube;
-        newTube.id = id->kind;
-        newTube.length = it->second.length;
-        newTube.diameter = it->second.diameter;
-        tubes.erase(value->kind);
-        tubes.insert(pair<string,Tube>(newTube.id,newTube));
-    }else if (connectors.find(value->kind) != connectors.end()){
-        map<string, Connector >::iterator it  = connectors.find(value->kind);
-        Connector newConnector;
-        newConnector.id = id->kind;
-        newConnector.diameter = it->second.diameter;
-        connectors.erase(value->kind);
-        connectors.insert(pair<string,Connector>(newConnector.id,newConnector));
-    }else{
-        errorNotDeclare(value,line);
-    }
-}
-
-void evaluateAST (AST *a){
-    int nChild = 0;
-    AST *currentChild;
-    while (nChild < numChilds(a)){
-        currentChild = child(a,nChild);
-        int nChilds = numChilds(currentChild);
-        if (nChilds == 3){//SPLIT
-            AST *id1 = child(currentChild,0);
-            AST *id2 = child(currentChild,1);
-            AST *sp = child(currentChild,2); //kind = SPLIT
-            pair<Tube,Tube> newTubes = split(sp->down,nChild+1);
-            if (newTubes.first.valid == true){
-                newTubes.first.id = id1->kind;
-                newTubes.second.id = id2->kind;
-                tubes.insert(pair<string,Tube>(id1->kind,newTubes.first));
-                tubes.insert(pair<string,Tube>(id2->kind,newTubes.second));
-            }
-        }
-        else if (nChilds == 2){ //TUBE , CONNECTOR , WHILE
-            if (currentChild->kind == "="){ //AN ASSIGNATION
-                AST *id = child(currentChild,0); //es el ID
-                AST *value = child(currentChild,1); //value
-                string kind = value->kind;
-                if (kind == "TUBE"){
-                    Tube newTube = createTube(id,value, nChild+1);           
-                    if (newTube.valid)
-                        tubes.insert(pair<string,Tube>(newTube.id,newTube));
-                }
-                else if (kind == "CONNECTOR"){
-                    Connector newConnector = createConnector(id,value,nChild+1);
-                    if (newConnector.valid)
-                        connectors.insert(pair<string,Connector>(newConnector.id,newConnector));
-                }else if (kind == "MERGE"){
-                    Tube newTube = merge(id,value,nChild+1);
-                    if (newTube.valid) 
-                        tubes.insert(pair<string,Tube>(newTube.id,newTube));
-                }
-                else {//normal assignation
-                    normalAssignation(id,value,nChild+1);
-                }                
-            }
-        }else if (nChilds == 1){ //LENGTH OR DIAMETER
-            AST *id = child(currentChild,0);
-            int size = getSize(currentChild,nChild+1);
-            if (size != -1)
-                printLengthDiameter(currentChild,id,size);
-        }
-        ++nChild;
-    }
-    cout << "Execution is done" << endl;
-    cout << "-------------------------" << endl << "-------------------------" << endl;
 }
 
 int main() {
   AST *root = NULL;
   ANTLR(plumber(&root), stdin);
-  //ASTPrint(root);
-  evaluateAST(root);
-  printTube();
+  ASTPrint(root);
+  evaluateAST(root,1);
+  printTubes();
   printConnectors();
+  printTubevectors();
   printErrors();
 }
 >>
@@ -409,7 +656,7 @@ tube: TUBE^ size size;
 split: SPLIT^ ID;
 connector: CONNECTOR^ size;
 merge: MERGE^ term term term;
-tubevector: TUBEVECTOR^ OF size;
+tubevector: TUBEVECTOR^ OF! size;
 term: ID | merge;
 size: NUM | length | diameter;
 
@@ -419,8 +666,8 @@ diameter: DIAMETER^ O_BRACKET! ID C_BRACKET!;
 
 //loop 
 loop: WHILE^ O_BRACKET! exp C_BRACKET! plumber ENDWHILE!;
-//boolean expression -> AND al mismo nivel que una OR (AND es prioritaria)
-exp: signed_term ((OR^ | ) exp)*;
+//boolean expression
+exp: signed_term (OR^ exp | );
 signed_term: ( | NOT^) b_term ( | AND^ signed_term);
 b_term: argument | (O_BRACKET! exp C_BRACKET!);
 argument: (size (GREATER^ | SMALLER^ | EQUAL_EQUAL^) size) | empty_full;
