@@ -60,7 +60,11 @@ lookNsay = []
 
 --10. tartaglia
 tartaglia :: [[Integer]]
-tartaglia = []
+tartaglia = triangle 0
 
-triangle_line n   = (binomial n-1 n)
-binomial r n = truncate ((factorial n) / ((factorial r) * (factorial (r-r))))
+triangle n = triangle_line n : triangle(n+1)
+triangle_line n = [binomial x n | x <-[0..n]] 
+caca t c = binomial (t-1) c:[(binomial t c)]
+binomial 0 _ = 1
+binomial k n = truncate ((factorial n) / ((factorial k) * (factorial (n-k))))
+
