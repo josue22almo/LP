@@ -55,8 +55,29 @@ hammings :: [Integer]
 hammings = []
 
 --9. lookNsay
-lookNsay :: [Integer]
-lookNsay = []
+lookNsay :: [Int]
+lookNsay = lNs 1
+
+
+lNs n = look n ++ [(lNs (look n))]
+look n = 
+    let s = show n
+    in digitToInt' (say s)
+
+-- say :: String -> [Int]
+   
+say s 
+    | null s   = []
+    | otherwise =  
+        let times = head (show (length (takeWhile (==h) s)))
+            newS = dropWhile (==h) s
+        in times:[h] ++ (say newS)
+        where h = head s
+        
+          
+digitToInt' :: [Char] -> Int
+digitToInt' c = read c :: Int
+
 
 --10. tartaglia
 tartaglia :: [[Integer]]
@@ -64,7 +85,6 @@ tartaglia = triangle 0
 
 triangle n = triangle_line n : triangle(n+1)
 triangle_line n = [binomial x n | x <-[0..n]] 
-caca t c = binomial (t-1) c:[(binomial t c)]
 binomial 0 _ = 1
 binomial k n = truncate ((factorial n) / ((factorial k) * (factorial (n-k))))
 
