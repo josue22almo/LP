@@ -9,9 +9,13 @@ nats = nats' 0
 nats' :: Integer -> [Integer]
 nats' n = n:(nats' (n+1))
 
---3. integers 
+--3. integers OK
 ints :: [Integer]
-ints = []
+ints = 0:createIntList 1 1 
+
+createIntList n p 
+    | odd p     = n:(createIntList n (p+1))
+    | otherwise = ((-1)*n):(createIntList (n+1) (p+1))
 
 --4. triangulars OK 
 triangulars :: [Integer]
@@ -50,36 +54,45 @@ primeRec n m
     | n < m * m     = True
     | otherwise     = primeRec n (m+1) 
 
---8. hammings
+--8. hammings 
 hammings :: [Integer]
 hammings = []
 
---9. lookNsay
-lookNsay :: [Int]
+hammingNum n p x = (pw2 n) * (pw3 p) * (pw5 x)   
+pw2 n = 2 ^ n
+pw3 n = 3 ^ n 
+pw5 n = 5 ^ n
+
+
+
+--9. lookNsay OK
+lookNsay :: [Integer]
 lookNsay = lNs 1
+lNs n = n:(lNs (look n))
 
-
-lNs n = look n ++ [(lNs (look n))]
 look n = 
-    let s = show n
-    in digitToInt' (say s)
+    let ln = tail (reverse (convertToList n))
+    in createInt (reverse (say ln))
+say ln 
+    | null ln   = []
+    | otherwise =
+        let times = fromIntegral (length (takeWhile (==h) ln)) 
+            newln = dropWhile (==h) ln
+        in times:[h] ++ (say newln)
+    where h = head ln
 
--- say :: String -> [Int]
-   
-say s 
-    | null s   = []
-    | otherwise =  
-        let times = head (show (length (takeWhile (==h) s)))
-            newS = dropWhile (==h) s
-        in times:[h] ++ (say newS)
-        where h = head s
-        
+--convert a Int to a list of digits
+convertToList 0 = [0]
+convertToList n = (n `mod` 10):(convertToList (n `div` 10))
+--create Integer number from a list of digits
+createInt = foldr (\ x acc -> addDigit acc x) 0 
+addDigit a b = a * 10 + b
           
 digitToInt' :: [Char] -> Int
 digitToInt' c = read c :: Int
 
 
---10. tartaglia
+--10. tartaglia OK
 tartaglia :: [[Integer]]
 tartaglia = triangle 0
 
