@@ -78,20 +78,29 @@ data ListMem a = LEmpty | LMem {getList:: [Pair a]} deriving Show
 
 append:: ListMem a -> String -> Val a -> [Pair a]
 append LEmpty s val = [(s,val)]
+append (LMem []) s val = [(s,val)]
 append (LMem mem@(l:ls)) s val  
      | fst l < s = l:(append (LMem ls) s val)
      | fst l == s = (s,val):ls
      | otherwise = (s,val):mem
-              
+            
+binSearch:: [Pair a] -> String -> Int -> Int -> Maybe (Val a)
+binSearch mem s l r 
+     | l > r = Nothing
+     | (fst (mem!!mid)) < s = binSearch mem s (mid+1) r
+     | (fst (mem!!mid)) > s = binSearch mem s l (mid-1)
+     | otherwise = Just $ snd $ mem!!mid
+     where
+          mid = (r+l) `div` 2
+
+         
 instance SymTable ListMem where
     update LEmpty s val = LMem [(s,val)]
     update mem s val = LMem $ append mem s val
     value LEmpty _ = Nothing
-    value (LMem mem@(x:xs)) s  
-        | fst x == s = Just $ snd x
-        | otherwise = value (LMem xs) s
+    value (LMem []) _ = Nothing
+    value (LMem mem) s = binSearch mem s 0  ((length mem) -1)
     start = LEmpty
---     show LEmpty = "Empty"
     
 data BinSearchTree a = BEmpty | BNode (Pair a) (BinSearchTree a) (BinSearchTree a) deriving Show
 
@@ -117,16 +126,10 @@ interpretCommand mem l@(x:xs) (Copy id1 id2) =
     if newValue /= (VVar 0) 
     then ((Right []), update mem id1 newValue , xs)
     else (Left ("Variable " ++ id2 ++ " is not available"), mem, l)
-    where newValue = fromMaybe (VVar 0) $ value mem id2 
--- interpretCommand mem l@(x:xs) (CAssign id (CONNECTOR nExpr)) = 
---     if num /= -1 
---        then((Right []), update mem id (VConnector num) , xs)
---        else (Left ("Wrong numeric expression"), mem, l)
---     where num = evalfC nExpr mem
+    where newValue = maybe2Val $ value mem id2 
+-- interpretCommand mem l@(x:xs) (CAssign id (CVar id2)) =  
+--     if valID2 /=
 interpretCommand mem l@(x:xs) (Input id) = ((Right []), update mem id (VVar x) , xs)
 
-
--- data NExpr a = Var ID | Const a | Diameter ID | Length ID 
---            | Plus (NExpr a) (NExpr a) | Minus (NExpr a) (NExpr a) | Times (NExpr a) (NExpr a) 
--- evalfC:: (Num a, SymTable m) => CExpr a -> m a -> a
--- evalfC (CVar id) mem = fromMaybe (-1) (value mem id)
+maybe2Val:: (Num a, Ord a) => Maybe (Val a) -> Val a
+maybe2Val = fromMaybe (VVar 0)
