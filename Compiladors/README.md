@@ -1,9 +1,9 @@
 # COMPILADORS
 
-###REQUIREMENTS
+### REQUIREMENTS
    * Install pccts
 
-###MAKEFILE
+### MAKEFILE
    * all: compiles all the project and generates the executable file (program)
    * parser: generates the parser
    * scan: creates the scanner and a file for detect the errors in the grammar
