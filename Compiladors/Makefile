@@ -1,11 +1,11 @@
 all: parser scan gcc  
 
 parser: *.g 
-	/opt/pccts/bin/antlr -gt *.g
+	antlr -gt *.g
 scan: 
-	/opt/pccts/bin/dlg -ci *.dlg scan.c
+	dlg -ci *.dlg scan.c
 gcc: 
-	g++ -Wno-write-strings -o program *.c -I/home/soft/PCCTS_v1.33/include/
+	g++ -Wno-write-strings -o program *.c -I/usr/include/pccts/
 pruebas:
 	./program < pruebas.txt > result_pruebas.txt
 	cat result_pruebas.txt
